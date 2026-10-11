@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>Boeing NYC Cinematic Edition - Ray Tracing</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #050b14;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            width: 100vw;
+            color: white;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #0f172a;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: contain; /* يحافظ على أبعاد اللعبة ونسبتها الأصلية بدون تشويه */
+            background: #0f172a;
+        }
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(11, 17, 32, 0.96);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            text-align: center;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+        h1 { color: #fbbf24; margin-bottom: 6px; font-size: 26px; text-shadow: 0 0 15px rgba(251,191,36,0.5); }
+        p { color: #94a3b8; font-size: 14px; margin-bottom: 15px; line-height: 1.4; }
+        
+        .coins-badge {
+            background: rgba(251, 191, 36, 0.15);
+            border: 1px solid #fbbf24;
+            color: #fbbf24;
+            padding: 6px 18px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            box-shadow: 0 0 12px rgba(251,191,36,0.2);
+        }
+
+        /* شاشة إدخال الاسم */
+        .input-box {
+            width: 320px;
+            max-width: 80%;
+            background: #1e293b;
+            border: 2px solid #334155;
+            color: #fff;
+            padding: 12px 18px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 18px;
+            text-align: center;
+            outline: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+        .input-box:focus {
+            border-color: #fbbf24;
+        }
+
+        /* شريط الموسيقى الأفقي */
+        .music-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 320px;
+            max-width: 80%;
+            background: rgba(30, 41, 59, 0.8);
+            border: 2px solid #334155;
+            padding: 8px 16px;
+            border-radius: 25px;
+            margin-bottom: 18px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+        .music-btn {
+            background: none;
+            border: none;
+            color: #fbbf24;
+            font-size: 18px;
+            cursor: pointer;
+            transition: 0.2s;
+            padding: 0 8px;
+        }
+        .music-btn:hover {
+            transform: scale(1.2);
+            color: #fff;
+        }
+        .music-info {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .music-label {
+            font-size: 10px;
+            color: #94a3b8;
+        }
+        .music-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #38bdf8;
+            text-shadow: 0 0 8px rgba(56,189,248,0.4);
+        }
+
+        /* لوحة الصدارة (Leaderboard) */
+        .leaderboard-list {
+            width: 350px;
+            max-width: 90%;
+            max-height: 280px;
+            overflow-y: auto;
+            margin-bottom: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 4px;
+        }
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #1e293b;
+            border: 1px solid #334155;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+        .leaderboard-item.top-1 { border-color: #fbbf24; background: rgba(251, 191, 36, 0.1); }
+        .leaderboard-item.top-2 { border-color: #94a3b8; background: rgba(148, 163, 184, 0.1); }
+        .leaderboard-item.top-3 { border-color: #b45309; background: rgba(180, 83, 9, 0.1); }
+
+        .shop-notification {
+            position: absolute;
+            bottom: 85px;
+            background: rgba(30, 41, 59, 0.95);
+            border: 2px solid #fbbf24;
+            color: #fbbf24;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.6);
+            transition: opacity 0.3s ease;
+            z-index: 20;
+        }
+
+        .chars-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+            max-height: 320px;
+            overflow-y: auto;
+            width: 360px;
+            max-width: 90%;
+            padding: 6px;
+        }
+        .char-card {
+            background: #1e293b;
+            border: 2px solid #334155;
+            border-radius: 10px;
+            padding: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+            text-align: center;
+        }
+        .char-card.selected {
+            border-color: #4ade80;
+            background: #14332a;
+            transform: scale(1.03);
+            box-shadow: 0 0 15px rgba(74,222,128,0.3);
+        }
+        .char-card:hover {
+            border-color: #fbbf24;
+        }
+        .char-card img {
+            width: 65px;
+            height: 32px;
+            object-fit: contain;
+            margin-bottom: 4px;
+        }
+        .char-name {
+            font-size: 13px;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 3px;
+        }
+        .char-perk {
+            font-size: 11px;
+            color: #38bdf8;
+            margin-bottom: 4px;
+        }
+        .char-status {
+            font-size: 11px;
+            padding: 3px;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+        .status-owned { color: #4ade80; background: rgba(74, 222, 128, 0.1); }
+        .status-locked { color: #fbbf24; background: rgba(251, 191, 36, 0.1); }
+        
+        .btn-container {
+            display: flex;
+            gap: 12px;
+            width: 320px;
+            max-width: 80%;
+            justify-content: center;
+        }
+        .btn {
+            background: #fbbf24;
+            color: #0f172a;
+            border: none;
+            padding: 12px 28px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 5px 0 #b45309, 0 0 20px rgba(251,191,36,0.4);
+            transition: 0.1s;
+        }
+        .btn-secondary {
+            background: #334155;
+            color: #fff;
+            box-shadow: 0 5px 0 #1e293b;
+        }
+        .btn:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+
+    <!-- أصوات اللعبة -->
+    <audio id="bgMusic" preload="auto" loop></audio>
+    <audio id="explosionSound" src="explosion_sound.mp3" preload="auto"></audio>
+    <audio id="coinSound" src="coin_sound.mp3" preload="auto"></audio>
+
+    <!-- شاشة إدخال اسم اللاعب (تظهر أول مرة) -->
+    <div id="nameScreen" class="overlay">
+        <h1>✈️ مرحباً بك في نيويورك</h1>
+        <p>الرجاء إدخال اسم الطيار الخاص بك للبدء</p>
+        <input type="text" id="usernameInput" class="input-box" placeholder="اكتب اسمك هنا..." maxlength="15">
+        <button class="btn" onclick="saveUsername()">دخول إلى اللعبة</button>
+    </div>
+
+    <!-- القائمة الرئيسية -->
+    <div id="mainMenu" class="overlay hidden">
+        <h1>🗽 Boeing NYC Cinematic Edition</h1>
+        <p id="welcomeUserText" style="color: #4ade80; font-weight: bold; margin-bottom: 8px; font-size: 15px;"></p>
+        
+        <!-- شريط اختيار الموسيقى -->
+        <div class="music-bar">
+            <button class="music-btn" onclick="prevMusic()">◀</button>
+            <div class="music-info">
+                <span class="music-label">الموسيقى الخلفية</span>
+                <span id="musicTitleDisplay" class="music-title">موسيقى سينمائية</span>
+            </div>
+            <button class="music-btn" onclick="nextMusic()">▶</button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px; width: 280px; max-width: 80%;">
+            <button class="btn" onclick="startGame()">ابدأ اللعب</button>
+            <button class="btn btn-secondary" onclick="openShop()">🛒 متجر الطائرات والقدرات</button>
+            <button class="btn btn-secondary" style="background: #1e3a8a; box-shadow: 0 5px 0 #1e1b4b;" onclick="openLeaderboard()">🏆 لوحة الصدارة أونلاين</button>
+        </div>
+    </div>
+
+    <!-- شاشة لوحة الصدارة -->
+    <div id="leaderboardScreen" class="overlay hidden">
+        <h1>🏆 لوحة الصدارة العالمية</h1>
+        <p>أفضل الطيارين في سماء نيويورك</p>
+        
+        <div class="leaderboard-list" id="leaderboardList">
+            <!-- يتم تعبئتها برمجياً -->
+        </div>
+
+        <button class="btn btn-secondary" onclick="closeLeaderboard()">العودة للقائمة</button>
+    </div>
+
+    <!-- واجهة المتجر -->
+    <div id="shopScreen" class="overlay hidden">
+        <h1>🛒 متجر الطائرات والقدرات الخاصة</h1>
+        <div class="coins-badge" id="totalCoinsDisplay">🪙 رصيدك: 0</div>
+        <p>اختر طائرتك المفضلة وانطلق في سماء نيويورك المتوهجة!</p>
+        
+        <div class="chars-grid" id="charsGrid"></div>
+        <div id="shopNotification" class="shop-notification hidden">رسالة التنبيه</div>
+
+        <div class="btn-container">
+            <button class="btn btn-secondary" onclick="closeShop()">العودة</button>
+            <button class="btn" id="actionBtn" onclick="handleShopAction()">شراء / تجهيز</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let playerName = localStorage.getItem("boeingPlayerName") || "";
+    
+    window.onload = function() {
+        if (playerName) {
+            document.getElementById("nameScreen").classList.add("hidden");
+            document.getElementById("mainMenu").classList.remove("hidden");
+            document.getElementById("welcomeUserText").innerText = "👤 الكابتن: " + playerName;
+        }
+    }
+
+    function saveUsername() {
+        let inputVal = document.getElementById("usernameInput").value.trim();
+        if (inputVal === "") {
+            alert("من فضلك اكتب اسمك للبدء!");
+            return;
+        }
+        playerName = inputVal;
+        localStorage.setItem("boeingPlayerName", playerName);
+        document.getElementById("nameScreen").classList.add("hidden");
+        document.getElementById("mainMenu").classList.remove("hidden");
+        document.getElementById("welcomeUserText").innerText = "👤 الكابتن: " + playerName;
+    }
+
+    const CHARACTERS = [
+        { name: "سرجان متفجر", file: "sarjen_plane.png", price: 0, perk: "رشيق وخفيف" },
+        { name: "نينو الطائر", file: "nino_plane.png", price: 10, perk: "🧲 مغناطيس عملات" },
+        { name: "DADACH", file: "dadach_plane.png", price: 25, perk: "🛡️ درع حماية واحد" },
+        { name: "ka7loch", file: "zinga.png.png", price: 40, perk: "🚀 دفعة سرعة نارية" },
+        { name: "gng", file: "gng_plane.png", price: 60, perk: "⭐ مضاعفة العملات x2" },
+        { name: "EL arbi", file: "EL_arbi.png", price: 100, perk: "⏳ إبطاء الزمن عند الخطر" }
+    ];
+
+    const MUSIC_TRACKS = [
+        { name: "oussma", file: "background_music.mp3" },
+        { name: "bilal sghir", file: "music_track2.mp3" },
+        { name: "lubna story", file: "music_track3.mp3" }
+    ];
+
+    let currentMusicIdx = parseInt(localStorage.getItem("boeingMusicIdx")) || 0;
+    if (currentMusicIdx < 0 || currentMusicIdx >= MUSIC_TRACKS.length) currentMusicIdx = 0;
+
+    const bgMusic = document.getElementById("bgMusic");
+    const musicTitleDisplay = document.getElementById("musicTitleDisplay");
+
+    function updateMusicBar() {
+        musicTitleDisplay.innerText = MUSIC_TRACKS[currentMusicIdx].name;
+        bgMusic.src = MUSIC_TRACKS[currentMusicIdx].file;
+        localStorage.setItem("boeingMusicIdx", currentMusicIdx);
+    }
+
+    function nextMusic() {
+        currentMusicIdx = (currentMusicIdx + 1) % MUSIC_TRACKS.length;
+        updateMusicBar();
+    }
+
+    function prevMusic() {
+        currentMusicIdx = (currentMusicIdx - 1 + MUSIC_TRACKS.length) % MUSIC_TRACKS.length;
+        updateMusicBar();
+    }
+    updateMusicBar();
+
+    function openLeaderboard() {
+        document.getElementById("mainMenu").classList.add("hidden");
+        document.getElementById("leaderboardScreen").classList.remove("hidden");
+        
+        let leaderboard = JSON.parse(localStorage.getItem("boeingLeaderboard")) || [
+            { name: "Ayoub", score: 20 },
+            { name: "Karim", score: 10 },
+            { name: "Sami", score: 5 }
+        ];
+
+        let listContainer = document.getElementById("leaderboardList");
+        listContainer.innerHTML = "";
+
+        leaderboard.sort((a, b) => b.score - a.score);
+
+        leaderboard.forEach((entry, idx) => {
+            let item = document.createElement("div");
+            let rankClass = idx === 0 ? "top-1" : (idx === 1 ? "top-2" : (idx === 2 ? "top-3" : ""));
+            item.className = `leaderboard-item ${rankClass}`;
+            item.innerHTML = `
+                <span>#${idx + 1} - ${entry.name}</span>
+                <span style="font-weight: bold; color: #fbbf24;">${entry.score} نقطة</span>
+            `;
+            listContainer.appendChild(item);
+        });
+    }
+
+    function closeLeaderboard() {
+        document.getElementById("leaderboardScreen").classList.add("hidden");
+        document.getElementById("mainMenu").classList.remove("hidden");
+    }
+
+    function updateLeaderboardData(newScore) {
+        if (!playerName || newScore <= 0) return;
+        let leaderboard = JSON.parse(localStorage.getItem("boeingLeaderboard")) || [
+            { name: "Ayoub", score: 45 },
+            { name: "Karim", score: 32 },
+            { name: "Sami", score: 20 }
+        ];
+
+        let existingUser = leaderboard.find(item => item.name === playerName);
+        if (existingUser) {
+            if (newScore > existingUser.score) {
+                existingUser.score = newScore;
+            }
+        } else {
+            leaderboard.push({ name: playerName, score: newScore });
+        }
+
+        leaderboard.sort((a, b) => b.score - a.score);
+        localStorage.setItem("boeingLeaderboard", JSON.stringify(leaderboard));
+    }
+
+    let selectedIndex = 0;
+    let loadedImages = [];
+
+    let totalCoins = parseInt(localStorage.getItem("boeingCoins")) || 0;
+    let unlockedChars = JSON.parse(localStorage.getItem("boeingUnlocked")) || [true, false, false, false, false, false];
+
+    let lastPlayedChar = parseInt(localStorage.getItem("boeingLastChar"));
+    if (!isNaN(lastPlayedChar) && lastPlayedChar >= 0 && lastPlayedChar < CHARACTERS.length) {
+        selectedIndex = lastPlayedChar;
+    }
+
+    let notificationTimeout;
+    function showNotification(text) {
+        const notif = document.getElementById("shopNotification");
+        notif.innerText = text;
+        notif.classList.remove("hidden");
+        notif.style.opacity = "1";
+        
+        clearTimeout(notificationTimeout);
+        notificationTimeout = setTimeout(() => {
+            notif.style.opacity = "0";
+            setTimeout(() => notif.classList.add("hidden"), 300);
+        }, 2200);
+    }
+
+    function updateShopUI() {
+        document.getElementById("totalCoinsDisplay").innerText = "🪙 رصيدك: " + totalCoins;
+        const charsGrid = document.getElementById("charsGrid");
+        charsGrid.innerHTML = "";
+
+        CHARACTERS.forEach((char, idx) => {
+            let img = new Image();
+            img.src = char.file;
+            loadedImages[idx] = img;
+
+            const card = document.createElement("div");
+            let isSelected = (idx === selectedIndex);
+            let isOwned = unlockedChars[idx];
+
+            card.className = `char-card ${isSelected ? 'selected' : ''}`;
+            card.innerHTML = `
+                <img src="${char.file}" alt="${char.name}">
+                <div class="char-name">${char.name}</div>
+                <div class="char-perk">${char.perk}</div>
+                <div class="char-status ${isOwned ? 'status-owned' : 'status-locked'}">
+                    ${isOwned ? (isSelected ? '✓ مجهز' : 'مملوكة') : '🔒 ' + char.price + ' 🪙'}
+                </div>
+            `;
+            
+            card.onclick = () => {
+                selectedIndex = idx;
+                updateShopUI();
+            };
+            charsGrid.appendChild(card);
+        });
+
+        const btn = document.getElementById("actionBtn");
+        if (unlockedChars[selectedIndex]) {
+            btn.innerText = "تجهيز الطائرة";
+            btn.style.background = "#fbbf24";
+        } else {
+            btn.innerText = `شراء بـ ${CHARACTERS[selectedIndex].price} 🪙`;
+            btn.style.background = "#4ade80";
+        }
+    }
+
+    function openShop() {
+        document.getElementById("mainMenu").classList.add("hidden");
+        document.getElementById("shopScreen").classList.remove("hidden");
+        updateShopUI();
+    }
+
+    function closeShop() {
+        document.getElementById("shopScreen").classList.add("hidden");
+        document.getElementById("mainMenu").classList.remove("hidden");
+    }
+
+    function handleShopAction() {
+        if (unlockedChars[selectedIndex]) {
+            showNotification("✅ ازدم يا راجل زين! تم التجهيز");
+        } else {
+            let price = CHARACTERS[selectedIndex].price;
+            if (totalCoins >= price) {
+                totalCoins -= price;
+                unlockedChars[selectedIndex] = true;
+                localStorage.setItem("boeingCoins", totalCoins);
+                localStorage.setItem("boeingUnlocked", JSON.stringify(unlockedChars));
+                updateShopUI();
+                showNotification("🎉 مبروك! تم شراء الطائرة بنجاح");
+            } else {
+                showNotification("❌ رصيدك غير كافٍ يا زعيم!");
+            }
+        }
+    }
+
+    CHARACTERS.forEach((char, idx) => {
+        let img = new Image();
+        img.src = char.file;
+        loadedImages[idx] = img;
+    });
+
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    
+    const explosionSound = document.getElementById("explosionSound");
+    const coinSound = document.getElementById("coinSound");
+    
+    bgMusic.volume = 0.4;
+    explosionSound.volume = 0.7;
+    coinSound.volume = 0.6;
+
+    let plane = { x: 70, y: 250, w: 85, h: 40, gravity: 0.32, lift: -6.8, velocity: 0 };
+    let buildings = [];
+    let coins = [];
+    let stars = [];
+    let bWidth = 65;
+    let bGap = 180;
+    let score = 0;
+    let sessionCoins = 0;
+    let highScore = localStorage.getItem("boeingHighScore") || 0;
+    let frame = 0;
+    let colorTimer = 0;
+    let isPlaying = false;
+    let isOver = false;
+
+    let hasShield = false;
+    let rocketParticles = [];
+    let particles = [];
+    let explosionTriggered = false;
+    let shakeTimer = 0; 
+    let flashAlpha = 0; 
+    let animationId = null;
+
+    for (let i = 0; i < 50; i++) {
+        stars.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            size: Math.random() * 2.5 + 0.5,
+            speed: Math.random() * 0.8 + 0.2,
+            alpha: Math.random() * 0.8 + 0.2
+        });
+    }
+
+    function createExplosion(x, y) {
+        if (explosionTriggered) return;
+        explosionTriggered = true;
+        shakeTimer = 30;
+        flashAlpha = 1.0; 
+
+        bgMusic.pause();
+        explosionSound.currentTime = 0;
+        explosionSound.play().catch(e => console.log("Audio play blocked:", e));
+
+        const particleCount = 120;
+        for (let i = 0; i < particleCount; i++) {
+            let angle = Math.random() * Math.PI * 2;
+            let speed = Math.random() * 20 + 2;
+            particles.push({
+                x: x,
+                y: y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                color: `hsl(${Math.random() * 60 + 10}, 100%, 65%)`,
+                life: Math.random() * 1.2 + 0.5,
+                size: Math.random() * 9 + 2,
+                friction: 0.92
+            });
+        }
+    }
+
+    function handleGameOverSave() {
+        totalCoins += sessionCoins;
+        localStorage.setItem("boeingCoins", totalCoins);
+        localStorage.setItem("boeingLastChar", selectedIndex);
+        
+        if (score > highScore) {
+            highScore = score;
+            localStorage.setItem("boeingHighScore", highScore);
+        }
+        updateLeaderboardData(score);
+    }
+
+    function startGame() {
+        if (animationId) cancelAnimationFrame(animationId);
+        
+        document.getElementById("mainMenu").classList.add("hidden");
+        document.getElementById("shopScreen").classList.add("hidden");
+        
+        plane.y = 250;
+        plane.velocity = 0;
+        buildings = [];
+        coins = [];
+        particles = [];
+        rocketParticles = [];
+        explosionTriggered = false;
+        shakeTimer = 0;
+        flashAlpha = 0;
+        score = 0;
+        sessionCoins = 0;
+        colorTimer = 0;
+        frame = 0;
+        isOver = false;
+        isPlaying = true;
+
+        hasShield = (selectedIndex === 2);
+
+        bgMusic.currentTime = 0;
+        bgMusic.play().catch(e => console.log("Audio play blocked by browser:", e));
+
+        loop();
+    }
+
+    function jump() {
+        if (!isPlaying) return;
+        if (!isOver) {
+            plane.velocity = plane.lift;
+        }
+    }
+
+    window.addEventListener("keydown", e => { 
+        if (e.code === "Space") {
+            e.preventDefault();
+            jump();
+        }
+    });
+
+    function addBuilding() {
+        let maxH = canvas.height - bGap - 100;
+        let h = Math.floor(Math.random() * maxH) + 50;
+        let topH = h;
+        let bottomH = canvas.height - h - bGap;
+        
+        buildings.push({ x: canvas.width, top: topH, bottom: bottomH, passed: false });
+
+        if (Math.random() > 0.3) {
+            coins.push({
+                x: canvas.width + bWidth / 2,
+                y: topH + bGap / 2,
+                collected: false,
+                radius: 12
+            });
+        }
+    }
+
+    function update() {
+        colorTimer++;
+
+        stars.forEach(s => {
+            s.x -= s.speed;
+            if (s.x < 0) s.x = canvas.width;
+        });
+
+        if (selectedIndex === 3 && isPlaying && !isOver) {
+            rocketParticles.push({
+                x: plane.x,
+                y: plane.y + plane.h / 2,
+                vx: -6 - Math.random() * 2,
+                vy: (Math.random() - 0.5) * 2,
+                size: Math.random() * 6 + 2,
+                life: 1.0
+            });
+        }
+
+        for (let i = rocketParticles.length - 1; i >= 0; i--) {
+            let rp = rocketParticles[i];
+            rp.x += rp.vx;
+            rp.y += rp.vy;
+            rp.life -= 0.05;
+            if (rp.life <= 0) rocketParticles.splice(i, 1);
+        }
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let p = particles[i];
+            p.vx *= p.friction;
+            p.vy *= p.friction;
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.15; 
+            p.life -= 0.015;
+            p.size *= 0.96;
+
+            if (p.life <= 0 || p.size <= 0.5) {
+                particles.splice(i, 1);
+            }
+        }
+
+        if (isOver || !isPlaying) return;
+
+        let gameSpeed = 2.2;
+        if (selectedIndex === 5) {
+            for (let b of buildings) {
+                if (b.x - plane.x < 120 && b.x + bWidth > plane.x) {
+                    gameSpeed = 1.2;
+                    break;
+                }
+            }
+        }
+
+        plane.velocity += plane.gravity;
+        plane.y += plane.velocity;
+
+        if (plane.y + plane.h >= canvas.height - 30 || plane.y <= 0) {
+            isOver = true;
+            handleGameOverSave();
+            createExplosion(plane.x + plane.w / 2, plane.y + plane.h / 2);
+        }
+
+        if (frame % 120 === 0) addBuilding();
+
+        for (let i = buildings.length - 1; i >= 0; i--) {
+            buildings[i].x -= gameSpeed;
+
+            let hit = (
+                plane.x + plane.w * 0.1 < buildings[i].x + bWidth &&
+                plane.x + plane.w * 0.9 > buildings[i].x &&
+                (plane.y + plane.h * 0.1 < buildings[i].top ||
+                 plane.y + plane.h * 0.9 > canvas.height - buildings[i].bottom)
+            );
+
+            if (hit) {
+                if (hasShield) {
+                    hasShield = false;
+                    shakeTimer = 20;
+                    plane.velocity = -5;
+                    buildings.splice(i, 1);
+                } else {
+                    isOver = true;
+                    handleGameOverSave();
+                    const impactX = Math.max(plane.x, buildings[i].x);
+                    const impactY = plane.y + plane.h / 2;
+                    createExplosion(impactX, impactY);
+                }
+            }
+
+            if (!buildings[i].passed && buildings[i].x + bWidth < plane.x) {
+                score++;
+                buildings[i].passed = true;
+            }
+
+            if (buildings[i].x + bWidth < 0) {
+                buildings.splice(i, 1);
+            }
+        }
+
+        for (let i = coins.length - 1; i >= 0; i--) {
+            coins[i].x -= gameSpeed;
+
+            let c = coins[i];
+            let planeCenterX = plane.x + plane.w / 2;
+            let planeCenterY = plane.y + plane.h / 2;
+            let distX = planeCenterX - c.x;
+            let distY = planeCenterY - c.y;
+            let distance = Math.sqrt(distX * distX + distY * distY);
+
+            let magnetRange = (selectedIndex === 1) ? 95 : 25;
+
+            if (!c.collected && distance < c.radius + magnetRange) {
+                c.collected = true;
+                let coinEarned = (selectedIndex === 4) ? 2 : 1;
+                sessionCoins += coinEarned;
+                
+                coinSound.currentTime = 0;
+                coinSound.play().catch(e => console.log("Coin audio play blocked:", e));
+            }
+
+            if (c.x + 30 < 0 || c.collected) {
+                coins.splice(i, 1);
+            }
+        }
+
+        frame++;
+    }
+
+    function draw() {
+        ctx.save();
+
+        if (shakeTimer > 0) {
+            let offsetX = (Math.random() - 0.5) * 14;
+            let offsetY = (Math.random() - 0.5) * 14;
+            ctx.translate(offsetX, offsetY);
+            shakeTimer--;
+        }
+
+        let bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        bgGrad.addColorStop(0, "#02040a");
+        bgGrad.addColorStop(0.3, "#090d19");
+        bgGrad.addColorStop(0.65, "#431407");
+        bgGrad.addColorStop(1, "#9a3412");
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        stars.forEach(s => {
+            ctx.save();
+            ctx.globalAlpha = s.alpha;
+            ctx.fillStyle = "#ffffff";
+            ctx.shadowColor = "#38bdf8";
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        });
+
+        buildings.forEach(b => {
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+            ctx.shadowBlur = 20;
+            ctx.shadowOffsetX = 8;
+            ctx.fillStyle = "#0f172a";
+            
+            ctx.fillRect(b.x, 0, bWidth, b.top);
+            ctx.fillRect(b.x, canvas.height - b.bottom, bWidth, b.bottom);
+
+            ctx.strokeStyle = "rgba(56, 189, 248, 0.4)";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(b.x, 0, bWidth, b.top);
+            ctx.strokeRect(b.x, canvas.height - b.bottom, bWidth, b.bottom);
+
+            ctx.shadowColor = 'rgba(253, 224, 71, 0.8)';
+            ctx.fillStyle = "#fef08a";
+            ctx.shadowBlur = 12;
+            ctx.shadowOffsetX = 0;
+            
+            for(let wx = b.x + 8; wx < b.x + bWidth - 8; wx += 14) {
+                for(let wy = 15; wy < b.top - 15; wy += 22) {
+                    if (Math.random() > 0.03) ctx.fillRect(wx, wy, 5, 9);
+                }
+                for(let wy = canvas.height - b.bottom + 15; wy < canvas.height - 40; wy += 22) {
+                    if (Math.random() > 0.03) ctx.fillRect(wx, wy, 5, 9);
+                }
+            }
+        });
+
+        rocketParticles.forEach(rp => {
+            ctx.save();
+            ctx.globalAlpha = rp.life;
+            ctx.fillStyle = "#ea580c";
+            ctx.shadowColor = "#fb923c";
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.arc(rp.x, rp.y, rp.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        });
+
+        coins.forEach(c => {
+            if (!c.collected) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
+                ctx.fillStyle = "#fbbf24";
+                ctx.shadowColor = "#f59e0b";
+                ctx.shadowBlur = 16;
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = "#fff";
+                ctx.stroke();
+                
+                ctx.fillStyle = "#78350f";
+                ctx.font = "bold 12px Arial";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText((selectedIndex === 4 ? "2x" : "$"), c.x, c.y);
+                ctx.restore();
+            }
+        });
+
+        ctx.shadowColor = 'transparent';
+        ctx.fillStyle = "#090d16";
+        ctx.fillRect(0, canvas.height - 30, canvas.width, 30);
+        
+        ctx.strokeStyle = "rgba(251, 191, 36, 0.3)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, canvas.height - 30);
+        ctx.lineTo(canvas.width, canvas.height - 30);
+        ctx.stroke();
+
+        if (!isOver) {
+            ctx.save();
+            ctx.translate(plane.x + plane.w / 2, plane.y + plane.h / 2);
+            let rot = Math.min(Math.max(plane.velocity * 0.035, -0.3), 0.4);
+            ctx.rotate(rot);
+
+            let activeImg = loadedImages[selectedIndex];
+            if (activeImg && activeImg.complete) {
+                ctx.shadowColor = "rgba(56, 189, 248, 0.7)";
+                ctx.shadowBlur = 15;
+                ctx.drawImage(activeImg, -plane.w / 2, -plane.h / 2, plane.w, plane.h);
+            }
+
+            if (selectedIndex === 1) {
+                ctx.strokeStyle = "rgba(56, 189, 248, 0.8)";
+                ctx.lineWidth = 3;
+                ctx.shadowColor = "#38bdf8";
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                ctx.arc(0, 0, 55, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            if (hasShield) {
+                ctx.strokeStyle = "rgba(74, 222, 128, 0.95)";
+                ctx.lineWidth = 4;
+                ctx.shadowColor = "#4ade80";
+                ctx.shadowBlur = 22;
+                ctx.beginPath();
+                ctx.arc(0, 0, Math.max(plane.w, plane.h) * 0.75, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        for (let p of particles) {
+            ctx.save();
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            ctx.shadowColor = p.color;
+            ctx.shadowBlur = 18;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        if (flashAlpha > 0) {
+            ctx.fillStyle = `rgba(255, 140, 0, ${flashAlpha})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            flashAlpha -= 0.05;
+        }
+
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 20px Arial";
+        ctx.textAlign = "right";
+        ctx.fillText("النقاط: " + score, canvas.width - 20, 35);
+        
+        ctx.fillStyle = "#fbbf24";
+        ctx.fillText("🪙 " + sessionCoins, canvas.width - 20, 65);
+        ctx.textAlign = "start";
+
+        ctx.restore(); 
+
+        if (isOver && particles.length === 0) {
+            ctx.fillStyle = "rgba(5, 7, 18, 0.96)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            let boxX = canvas.width / 2 - 170, boxY = canvas.height / 2 - 215, boxW = 340, boxH = 430;
+            let rgbBorderColor = `hsl(${(colorTimer * 4) % 360}, 100%, 60%)`;
+            
+            ctx.strokeStyle = rgbBorderColor;
+            ctx.lineWidth = 4;
+            ctx.shadowColor = rgbBorderColor;
+            ctx.shadowBlur = 25;
+            ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+            ctx.fillStyle = "rgba(15, 23, 42, 0.94)";
+            ctx.fillRect(boxX, boxY, boxW, boxH);
+
+            ctx.fillStyle = rgbBorderColor;
+            ctx.font = "bold 22px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("للأسف خسرت", canvas.width / 2, boxY + 50);
+            ctx.fillText("اللعبة قاع", canvas.width / 2, boxY + 85);
+
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 10;
+
+            ctx.fillStyle = "#fff";
+            ctx.font = "16px Arial";
+            ctx.fillText("النتيجة النهائية: " + score, canvas.width / 2, boxY + 135);
+
+            ctx.fillStyle = "#fbbf24";
+            ctx.font = "16px Arial";
+            ctx.fillText("العملات المجمعة: +" + sessionCoins + " 🪙", canvas.width / 2, boxY + 175);
+
+            ctx.fillStyle = "#fbbf24";
+            ctx.font = "15px Arial";
+            ctx.fillText("أعلى رقم قياسي: " + highScore, canvas.width / 2, boxY + 215);
+
+            ctx.fillStyle = score >= highScore && score > 0 ? "#4ade80" : "#94a3b8";
+            ctx.font = "bold 13px Arial";
+            let progressText = score >= highScore && score > 0 ? "🔥 ممتاز! رقم قياسي جديد!" : "💪 استمر في التقدم لتكسير الرقم!";
+            ctx.fillText(progressText, canvas.width / 2, boxY + 255);
+
+            ctx.fillStyle = "#fbbf24";
+            ctx.fillRect(canvas.width / 2 - 110, boxY + 300, 220, 42);
+            ctx.fillStyle = "#0f172a";
+            ctx.font = "bold 16px Arial";
+            ctx.fillText("إعادة المحاولة", canvas.width / 2, boxY + 327);
+
+            ctx.fillStyle = "#334155";
+            ctx.fillRect(canvas.width / 2 - 110, boxY + 355, 220, 42);
+            ctx.fillStyle = "#ffffff";
+            ctx.fillText("العودة للمتجر", canvas.width / 2, boxY + 382);
+
+            ctx.textAlign = "start";
+        }
+    }
+
+    function loop() {
+        update();
+        draw();
+        if (isPlaying || (isOver && particles.length > 0)) {
+            animationId = requestAnimationFrame(loop);
+        }
+    }
+
+    // تعديل حساب النقرات ليتناسب مع قياسات الشاشة والـ Canvas بالكامل
+    canvas.addEventListener("click", (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const clickX = (e.clientX - rect.left) * scaleX;
+        const clickY = (e.clientY - rect.top) * scaleY;
+
+        if (isOver && particles.length === 0) {
+            let boxY = canvas.height / 2 - 215;
+            if (clickX >= canvas.width / 2 - 110 && clickX <= canvas.width / 2 + 110 && clickY >= boxY + 300 && clickY <= boxY + 342) {
+                startGame();
+            } else if (clickX >= canvas.width / 2 - 110 && clickX <= canvas.width / 2 + 110 && clickY >= boxY + 355 && clickY <= boxY + 397) {
+                isOver = false;
+                document.getElementById("shopScreen").classList.remove("hidden");
+                updateShopUI();
+            }
+        } else {
+            jump();
+        }
+    });
+</script>
+
+</body>
+</html> 
